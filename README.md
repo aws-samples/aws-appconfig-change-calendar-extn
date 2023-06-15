@@ -51,7 +51,7 @@ You will need Docker installed and running for CDK to build the Lambda function.
 2. Choose the **ChangeCalendar** extension
 3. For each entry under **Associated resources**, choose the radio button then
    choose **Remove association**, then choose **Delete**
-4. Once you have removed all the Associated resources, you can `cdk destory`
+4. Once you have removed all the Associated resources, you can `cdk destroy`
    the app
 
 ## Security
