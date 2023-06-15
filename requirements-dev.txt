@@ -1,0 +1,4 @@
+# vim: ft=requirements
+bandit==1.7.5
+black==23.3.0
+ruff==0.0.272
