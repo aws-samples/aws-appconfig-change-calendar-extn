@@ -6,13 +6,13 @@ CDK stack to deploy the CheckChangeCalendar AppConfig Extension
 # SPDX-License-Identifier: MIT-0
 
 
-from aws_cdk import Stack
+from typing import cast
+
+from aws_cdk import Stack, aws_appconfig
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda
 from aws_cdk import aws_lambda_python_alpha as aws_python
-from aws_cdk import custom_resources as cr
 from constructs import Construct
-
 
 ACTION_NAME = "CheckChangeCalendar"
 EXTENSION_NAME = "ChangeCalendar"
@@ -48,74 +48,33 @@ class CdkAppconfigChangeCalendarExtnStack(Stack):
         appconfig_svc_role = iam.Role(
             self,
             "appconfig_role",
-            assumed_by=iam.ServicePrincipal("appconfig.amazonaws.com"),
+            assumed_by=cast(
+                iam.IPrincipal, iam.ServicePrincipal("appconfig.amazonaws.com")
+            ),
         )
         function.grant_invoke(appconfig_svc_role)
 
-        cr.AwsCustomResource(
+        aws_appconfig.Extension(
             self,
-            "extn_cr",
-            install_latest_aws_sdk=False,
-            policy=cr.AwsCustomResourcePolicy.from_statements(
-                statements=[
-                    iam.PolicyStatement(
-                        effect=iam.Effect.ALLOW,
-                        actions=[
-                            "appconfig:CreateExtension",
-                            "appconfig:UpdateExtension",
-                            "appconfig:DeleteExtension",
-                        ],
-                        resources=["*"],
+            "ChangeCalExtn",
+            actions=[
+                aws_appconfig.Action(
+                    action_points=[aws_appconfig.ActionPoint.PRE_START_DEPLOYMENT],
+                    description=EXTENSION_DESCRIPTION,
+                    event_destination=aws_appconfig.LambdaDestination(
+                        cast(aws_lambda.IFunction, function)
                     ),
-                    iam.PolicyStatement(
-                        effect=iam.Effect.ALLOW,
-                        actions=["iam:PassRole"],
-                        resources=[appconfig_svc_role.role_arn],
-                    ),
-                ]
-            ),
-            on_create=cr.AwsSdkCall(
-                action="createExtension",
-                service="AppConfig",
-                parameters={
-                    "Actions": {
-                        "PRE_START_DEPLOYMENT": [
-                            {
-                                "Uri": function.function_arn,
-                                "Name": ACTION_NAME,
-                                "RoleArn": appconfig_svc_role.role_arn,
-                            }
-                        ]
-                    },
-                    "Description": EXTENSION_DESCRIPTION,
-                    "Name": EXTENSION_NAME,
-                    "Parameters": EXTENSION_PARAMS,
-                },
-                physical_resource_id=cr.PhysicalResourceId.from_response("Id"),
-            ),
-            on_update=cr.AwsSdkCall(
-                action="updateExtension",
-                service="AppConfig",
-                parameters={
-                    "ExtensionIdentifier": cr.PhysicalResourceIdReference(),
-                    "Actions": {
-                        "PRE_START_DEPLOYMENT": [
-                            {
-                                "Uri": function.function_arn,
-                                "RoleArn": appconfig_svc_role.role_arn,
-                                "Name": ACTION_NAME,
-                            }
-                        ]
-                    },
-                    "Description": EXTENSION_DESCRIPTION,
-                    "Parameters": EXTENSION_PARAMS,
-                },
-                physical_resource_id=cr.PhysicalResourceId.from_response("Id"),
-            ),
-            on_delete=cr.AwsSdkCall(
-                action="deleteExtension",
-                service="AppConfig",
-                parameters={"ExtensionIdentifier": cr.PhysicalResourceIdReference()},
-                ignore_error_codes_matching="ResourceNotFoundException",
-            ),
+                )
+            ],
+            extension_name=EXTENSION_NAME,
+            description=EXTENSION_DESCRIPTION,
+            latest_version_number=1,
+            parameters=[
+                aws_appconfig.Parameter.required(
+                    name="calendars",
+                    description="Comma-separated list of SSM Change Calendar names to check against",
+                    # TODO value is required but we don't need it
+                    value=""
+                ),
+            ],
         )
