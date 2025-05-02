@@ -33,7 +33,7 @@ class CdkAppconfigChangeCalendarExtnStack(Stack):
             self,
             "check_fn",
             index="index.py",
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_13,
             handler="lambda_handler",
             entry="lambda",
         )
